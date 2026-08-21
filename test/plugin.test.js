@@ -10,7 +10,6 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 import * as plugin from '../lib/index.js';
-import * as client from '../lib/client.js';
 import { OpenBotContainerManager } from '../lib/container.js';
 import { OpenBotSecurityGateway } from '../lib/security.js';
 import { registerOpenBotTools } from '../lib/tools.js';
@@ -160,8 +159,7 @@ test('5. Sandboxed Filesystem Tools Execution & Security Guard', async () => {
   }, /outside the sandbox workspace/);
 });
 
-test('6. Cordis Context Plugin Mount & Client Slot Registration', async () => {
-  const registeredSlots = [];
+test('6. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle', async () => {
   const registeredSections = [];
   const providedServices = new Map();
 
@@ -171,9 +169,6 @@ test('6. Cordis Context Plugin Mount & Client Slot Registration', async () => {
     tools: { register() {} },
     systemPrompt: {
       section(sec) { registeredSections.push(sec); }
-    },
-    slots: {
-      register(slotDef) { registeredSlots.push(slotDef); }
     },
     on(event, handler) {}
   };
@@ -188,8 +183,29 @@ test('6. Cordis Context Plugin Mount & Client Slot Registration', async () => {
   assert.ok(mockCtx.openbot);
   assert.ok(registeredSections.some(s => s.name === 'openbot:sandbox'));
 
-  // Mount client module
-  client.apply(mockCtx);
-  assert.ok(registeredSlots.some(s => s.key === 'openbot-sandbox'));
-  assert.ok(registeredSlots.some(s => s.key === 'openbot-settings'));
+  // Test browser client bundle registration via __ModuleLoader__
+  let registeredModule = null;
+  global.window = {
+    __ModuleLoader__: {
+      load(mod) {
+        registeredModule = mod;
+      }
+    }
+  };
+
+  const clientCode = await fs.readFile(path.join(__dirname, '../lib/client.js'), 'utf8');
+  // Evaluate in sandbox
+  new Function(clientCode)();
+
+  assert.ok(registeredModule);
+  assert.equal(registeredModule.id, 'dsh-plugin-openbot');
+  assert.equal(typeof registeredModule.factory, 'function');
+
+  // Test factory invocation
+  const clientExports = registeredModule.factory((mod) => {
+    if (mod === 'react') return { useState: () => [{}, () => {}], useEffect: () => {} };
+    return {};
+  });
+  assert.equal(clientExports.name, 'dsh-plugin-openbot');
+  assert.equal(typeof clientExports.apply, 'function');
 });
