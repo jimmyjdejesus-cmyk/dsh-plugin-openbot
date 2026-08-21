@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+.pnpm/
+
+# Build and logs
+dist/
+*.log
+audit.log.jsonl
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local

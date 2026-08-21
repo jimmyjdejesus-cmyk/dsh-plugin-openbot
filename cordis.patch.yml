@@ -1,0 +1,11 @@
+# dsh-plugin-openbot bundle patch: integrates CopilotKit OpenBot sandbox into DSH.
+- insert:
+    - id: openbot
+      name: dsh-plugin-openbot
+      config:
+        enabled: true
+        endpoint: "http://localhost:8080"
+        autoStartContainer: true
+        containerName: "dsh-openbot-sandbox"
+        requireApproval: true
+        workspaceDir: !!js process.env.HOME + '/.dsh/openbot/workspace'
