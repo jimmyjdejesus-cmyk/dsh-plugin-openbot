@@ -35,10 +35,8 @@ test.afterEach(async () => {
 test('1. Plugin module metadata & schemas', () => {
   assert.equal(plugin.name, 'dsh-plugin-openbot');
   assert.deepEqual(plugin.inject, ['tools', 'systemPrompt']);
-  assert.equal(plugin.Config.type, 'object');
-  assert.ok(plugin.Config.properties.containerName);
-  assert.ok(plugin.Config.properties.apiPort);
-  assert.ok(plugin.Config.properties.workspaceDir);
+  assert.ok(plugin.Config['~standard']);
+  assert.equal(typeof plugin.Config['~standard'].validate, 'function');
 });
 
 test('2. System prompt generator', () => {
@@ -113,7 +111,7 @@ test('5. Sandboxed Filesystem Tools Execution & Security Guard', async () => {
   const registeredTools = new Map();
   const mockCtx = {
     tools: {
-      define(toolDef) {
+      register(toolDef) {
         registeredTools.set(toolDef.name, toolDef);
       }
     }
@@ -170,7 +168,7 @@ test('6. Cordis Context Plugin Mount & Client Slot Registration', async () => {
   const mockCtx = {
     logger: { info() {}, warn() {}, error() {} },
     provide(name) { providedServices.set(name, true); },
-    tools: { define() {} },
+    tools: { register() {} },
     systemPrompt: {
       section(sec) { registeredSections.push(sec); }
     },
