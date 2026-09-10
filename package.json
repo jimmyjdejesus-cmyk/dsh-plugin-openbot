@@ -39,8 +39,13 @@
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1"
   },
+  "bin": {
+    "openbot-mcp": "./bin/mcp-server.js"
+  },
   "files": [
+    "bin",
     "lib",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "Dockerfile"
   ]
 }

@@ -299,3 +299,57 @@ test('8. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle', async (
   assert.equal(clientExports.name, 'dsh-plugin-openbot');
   assert.equal(typeof clientExports.apply, 'function');
 });
+
+test('9. Universal Model Context Protocol (MCP) Server stdio protocol', async () => {
+  const { spawn } = await import('node:child_process');
+  const serverPath = path.join(__dirname, '../bin/mcp-server.js');
+  
+  const server = spawn('node', [serverPath], {
+    env: { ...process.env, OPENBOT_WORKSPACE: testWorkspace }
+  });
+
+  let outputBuffer = '';
+  const responses = [];
+
+  server.stdout.on('data', (chunk) => {
+    outputBuffer += chunk.toString();
+    const lines = outputBuffer.split('\n');
+    outputBuffer = lines.pop();
+    for (const line of lines) {
+      if (line.trim()) {
+        try {
+          responses.push(JSON.parse(line));
+        } catch (e) {}
+      }
+    }
+  });
+
+  // 1. Send initialize
+  server.stdin.write(JSON.stringify({
+    jsonrpc: '2.0',
+    id: 101,
+    method: 'initialize',
+    params: { protocolVersion: '2024-11-05' }
+  }) + '\n');
+
+  // 2. Send tools/list
+  server.stdin.write(JSON.stringify({
+    jsonrpc: '2.0',
+    id: 102,
+    method: 'tools/list'
+  }) + '\n');
+
+  // Wait for responses
+  await new Promise(resolve => setTimeout(resolve, 300));
+  server.kill();
+
+  const initResp = responses.find(r => r.id === 101);
+  assert.ok(initResp, 'Should receive initialize response');
+  assert.equal(initResp.result.serverInfo.name, 'openbot-mcp-server');
+
+  const toolsResp = responses.find(r => r.id === 102);
+  assert.ok(toolsResp, 'Should receive tools/list response');
+  assert.ok(Array.isArray(toolsResp.result.tools));
+  assert.ok(toolsResp.result.tools.some(t => t.name === 'openbot_browser_navigate'));
+  assert.ok(toolsResp.result.tools.some(t => t.name === 'openbot_take_wheel'));
+});
