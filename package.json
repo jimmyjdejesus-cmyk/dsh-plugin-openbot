@@ -1,13 +1,14 @@
 {
   "name": "dsh-plugin-openbot",
-  "version": "0.1.0",
-  "description": "DeepSeek Harness plugin for CopilotKit OpenBot: integrates isolated Docker container sandboxing, virtual browser, workspace filesystem, and pre-action audit approvals into DSH Desktop.",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness plugin for CopilotKit OpenBot: integrates isolated Docker container sandboxing, high-precision indexed browser automation (@e1 refs), Human-in-the-Loop ('Take the Wheel') controls, workspace filesystem, and pre-action audit approvals into DSH Desktop.",
   "keywords": [
     "dsh-plugin",
     "deepseek-harness",
     "copilotkit",
     "openbot",
     "sandbox",
+    "browser-use",
     "browser",
     "cordis"
   ],

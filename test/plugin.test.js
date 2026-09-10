@@ -1,6 +1,6 @@
 /**
  * @file plugin.test.js
- * Comprehensive integration test suite for dsh-plugin-openbot.
+ * Comprehensive integration test suite for dsh-plugin-openbot v0.2.0.
  */
 
 import test from 'node:test';
@@ -43,6 +43,10 @@ test('2. System prompt generator', () => {
   assert.ok(prompt.includes('CopilotKit OpenBot Sandbox Environment'));
   assert.ok(prompt.includes('openbot_bash_exec'));
   assert.ok(prompt.includes('openbot_browser_navigate'));
+  assert.ok(prompt.includes('openbot_browser_snapshot'));
+  assert.ok(prompt.includes('openbot_browser_click'));
+  assert.ok(prompt.includes('openbot_browser_type'));
+  assert.ok(prompt.includes('Take the Wheel'));
 });
 
 test('3. Container Manager & Docker daemon checks', async () => {
@@ -77,6 +81,14 @@ test('4. Security Gateway risk scoring & audit logging', async () => {
   const highRisk = gateway.assessRisk('openbot_bash_exec', { command: 'rm -rf /' });
   assert.equal(highRisk.level, 'high');
   assert.ok(highRisk.reason);
+
+  // Browser type credential leak check
+  const credRisk = gateway.assessRisk('openbot_browser_type', { text: 'sk-proj-123456789' });
+  assert.equal(credRisk.level, 'medium');
+
+  // Browser eval cookie inspection check
+  const evalRisk = gateway.assessRisk('openbot_browser_eval', { script: 'document.cookie' });
+  assert.equal(evalRisk.level, 'medium');
 
   // Path traversal check
   const pathTraversalRisk = gateway.assessRisk('openbot_fs_write', { path: '../../etc/passwd', content: 'x' });
@@ -159,7 +171,79 @@ test('5. Sandboxed Filesystem Tools Execution & Security Guard', async () => {
   }, /outside the sandbox workspace/);
 });
 
-test('6. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle', async () => {
+test('6. High-Precision Browser Tools Suite Registration', async () => {
+  const manager = new OpenBotContainerManager({ workspaceDir: testWorkspace });
+  const gateway = new OpenBotSecurityGateway({ auditLogPath: testAuditLog });
+
+  const registeredTools = new Map();
+  const mockCtx = {
+    tools: {
+      register(toolDef) {
+        registeredTools.set(toolDef.name, toolDef);
+      }
+    }
+  };
+
+  registerOpenBotTools(mockCtx, manager, gateway);
+
+  const expectedTools = [
+    'openbot_browser_navigate',
+    'openbot_browser_snapshot',
+    'openbot_browser_click',
+    'openbot_browser_type',
+    'openbot_browser_press',
+    'openbot_browser_scroll',
+    'openbot_browser_screenshot',
+    'openbot_browser_eval'
+  ];
+
+  for (const name of expectedTools) {
+    assert.ok(registeredTools.has(name), `Missing expected browser tool: ${name}`);
+  }
+});
+
+test('7. Human-in-the-Loop "Take the Wheel" Mode Suspension', async () => {
+  const gateway = new OpenBotSecurityGateway({ auditLogPath: testAuditLog });
+  assert.equal(gateway.isHumanTakeoverActive, false);
+
+  // Activate Take the Wheel
+  await gateway.takeTheWheel();
+  assert.equal(gateway.isHumanTakeoverActive, true);
+
+  // Attempt to execute an automated browser action while takeover is active
+  let wasExecuted = false;
+  const result = await gateway.executeGuarded('openbot_browser_click', { target: '@e1' }, async () => {
+    wasExecuted = true;
+    return { status: 'clicked' };
+  });
+
+  // Action MUST be suspended without executing the underlying tool
+  assert.equal(wasExecuted, false);
+  assert.equal(result.paused, true);
+  assert.equal(result.status, 'suspended');
+  assert.ok(result.message.includes('human user has taken the wheel'));
+
+  // Non-browser actions (e.g. reading a local file) should still be permitted
+  let fsExecuted = false;
+  const fsResult = await gateway.executeGuarded('openbot_fs_read', { path: 'data.txt' }, async () => {
+    fsExecuted = true;
+    return { content: 'sample' };
+  });
+  assert.equal(fsExecuted, true);
+  assert.equal(fsResult.content, 'sample');
+
+  // Release the wheel
+  await gateway.releaseWheel();
+  assert.equal(gateway.isHumanTakeoverActive, false);
+
+  // Now browser actions proceed normally
+  const resumeResult = await gateway.executeGuarded('openbot_browser_click', { target: '@e1' }, async () => {
+    return { status: 'clicked' };
+  });
+  assert.equal(resumeResult.status, 'clicked');
+});
+
+test('8. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle', async () => {
   const registeredSections = [];
   const providedServices = new Map();
 
@@ -181,6 +265,12 @@ test('6. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle', async (
   });
 
   assert.ok(mockCtx.openbot);
+  assert.equal(typeof mockCtx.openbot.takeTheWheel, 'function');
+  assert.equal(typeof mockCtx.openbot.releaseWheel, 'function');
+  assert.equal(typeof mockCtx.openbot.toggleWheel, 'function');
+  assert.equal(typeof mockCtx.openbot.isWheelActive, 'function');
+  assert.equal(typeof mockCtx.openbot.restartContainer, 'function');
+
   assert.ok(registeredSections.some(s => s.name === 'openbot:sandbox'));
 
   // Test browser client bundle registration via __ModuleLoader__
@@ -194,7 +284,6 @@ test('6. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle', async (
   };
 
   const clientCode = await fs.readFile(path.join(__dirname, '../lib/client.js'), 'utf8');
-  // Evaluate in sandbox
   new Function(clientCode)();
 
   assert.ok(registeredModule);

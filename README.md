@@ -1,22 +1,32 @@
 # dsh-plugin-openbot 🤖
 
 [![CI](https://github.com/jimmyjdejesus-cmyk/dsh-plugin-openbot/actions/workflows/ci.yml/badge.svg)](https://github.com/jimmyjdejesus-cmyk/dsh-plugin-openbot/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-blue.svg)](package.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![DeepSeek Harness](https://img.shields.io/badge/DSH-Plugin-blueviolet.svg)](https://github.com/deepseek-ai)
 [![CopilotKit OpenBot](https://img.shields.io/badge/CopilotKit-OpenBot-orange.svg)](https://github.com/CopilotKit/openbot)
 
-A native **Cordis plugin** for **DeepSeek Harness (DSH)** that integrates **CopilotKit OpenBot** sandboxed execution directly into DSH Desktop and CLI.
+A native **Cordis plugin** for **DeepSeek Harness (DSH)** integrating **CopilotKit OpenBot** sandboxed execution, high-precision indexed browser automation (inspired by `browser-use`), and Human-in-the-Loop ("Take the Wheel") governance directly into DSH Desktop and CLI.
 
 ---
 
-## 🌟 Features
+## 🌟 Key Features (v0.2.0)
 
-- **🐳 Auto-Managed Docker Container**: Detects your local Docker runtime (Docker Desktop, OrbStack, Colima) and manages the `dsh-openbot-sandbox` container on demand.
-- **🌐 Isolated Chromium Browser**: Gives AI agents a containerized Chromium instance with full CDP navigation, clicking, typing, and DOM snapshot capabilities without polluting host browsers.
-- **📁 Sandboxed Workspace Filesystem**: All file reads/writes from agent tasks are jailed to `~/.dsh/openbot/workspace` (`/sandbox/workspace` in the container).
-- **🛡️ Pre-Action Security & Fail-Closed Gateway**: Automatically scores risk levels of shell commands and filesystem operations, preventing destructive actions and enforcing user approval.
-- **📜 Audited Action Ledger**: Records every tool execution with timestamps, risk level, and output summary to `~/.dsh/openbot/audit.log.jsonl`.
-- **🖥️ DSH Desktop UI Slot**: Injects a real-time dashboard tab into DSH Desktop showing container health, audit streams, and live browser screencast links.
+- **🐳 Auto-Managed Docker Container**: Detects your local Docker runtime (Docker Desktop, OrbStack, Colima) and manages the `dsh-openbot-sandbox` container on demand, with a reliable local jailed fallback.
+- **🌐 High-Precision Indexed Browser Automation**:
+  - **Indexed Element Mapping (`@e1`, `@e2`)**: Automatically maps interactive DOM elements to numbered references, preventing brittle CSS/XPath guessing.
+  - **Full Action Primitives**: Navigate, snapshot, click (`@ref` or selector), type, press keys (`Enter`, `Tab`, `Escape`), scroll, capture screenshots, and evaluate safe JavaScript.
+- **🚗 Human-in-the-Loop ("Take the Wheel")**:
+  - Allows human operators to take manual control of the browser session for 2FA, CAPTCHAs, or credential entry.
+  - Automated agent browser calls are cleanly suspended during human takeover and resume seamlessly once the wheel is released.
+- **📁 Sandboxed Workspace Filesystem**: All file reads, writes, and listings from agent tasks are jailed to `~/.dsh/openbot/workspace` (`/sandbox/workspace` in the container).
+- **🛡️ Pre-Action Security & Fail-Closed Gateway**: Automatically evaluates risk levels of shell commands and filesystem operations, preventing destructive actions.
+- **📜 Audited Action Ledger**: Records every tool execution with timestamps, risk level, duration, and output summary to `~/.dsh/openbot/audit.log.jsonl`.
+- **🖥️ Interactive DSH Desktop UI Slot**: Injects an interactive dashboard tab into DSH Desktop featuring:
+  - Live container state with one-click **Start / Stop / Restart** buttons.
+  - One-click **Take the Wheel** manual takeover toggle.
+  - Filterable audit trail by risk tag (`HIGH`, `MED`, `LOW`).
+  - Sandboxed workspace file explorer.
 
 ---
 
@@ -27,20 +37,21 @@ A native **Cordis plugin** for **DeepSeek Harness (DSH)** that integrates **Copi
 │                             DSH Desktop UI                                 │
 │  ┌───────────────────────────────┐     ┌────────────────────────────────┐  │
 │  │   Agent Chat & Inline Cards   │     │   OpenBot Sandbox Panel (Slot) │  │
-│  │   (Pre-action Approvals)      │     │   (Live Browser, Audit Trail)  │  │
+│  │   (Pre-action Approvals)      │     │   • Live Screencast (:8081)    │  │
+│  │                               │     │   • "Take the Wheel" Toggle    │  │
+│  │                               │     │   • Filterable Audit Trail     │  │
 │  └───────────────┬───────────────┘     └───────────────▲────────────────┘  │
 └──────────────────┼─────────────────────────────────────┼───────────────────┘
                    │                                     │
 ┌──────────────────▼─────────────────────────────────────┴───────────────────┐
-│                    DSH Runtime & Cordis Ecosystem                          │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                 dsh-plugin-openbot (Cordis Service)                  │  │
-│  │  • Docker Lifecycle: Auto-provisions and manages OpenBot sandbox     │  │
-│  │  • Tool Provider: Injects `openbot_browser`, `openbot_bash`, `fs`     │  │
-│  │  • Security Interceptor: Intercepts actions for chat approval cards  │  │
-│  │  • Slot Registrar: Injects OpenBot tab & status into DSH Desktop     │  │
-│  └──────────────────────────────────┬───────────────────────────────────┘  │
-└─────────────────────────────────────┼──────────────────────────────────────┘
+                   DSH Runtime & Cordis 4.x Ecosystem
+   ┌──────────────────────────────────────────────────────────────────────┐
+   │                 dsh-plugin-openbot (Cordis Service)                  │
+   │  • Docker Lifecycle: Provisions & health-checks OpenBot sandbox      │
+   │  • Browser Tool Suite: 8 CDP actions with @ref element indexing      │
+   │  • Security Gateway: Risk scoring, HITL suspension & audit ledger    │
+   │  • UI Slot Registrar: Registers workspace.tab & settings.plugin.item │
+   └──────────────────────────────────┬───────────────────────────────────┘
                                       │ REST / WebSocket / CDP
 ┌─────────────────────────────────────▼──────────────────────────────────────┐
 │                    Local Docker (OpenBot Container)                        │
@@ -50,6 +61,42 @@ A native **Cordis plugin** for **DeepSeek Harness (DSH)** that integrates **Copi
 │  └───────────────────────┘  └───────────────────────┘  └────────────────┘  │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 🛠️ Tool Catalog
+
+### 1. Isolated System & Filesystem Tools
+| Tool Name | Parameters | Description |
+| :--- | :--- | :--- |
+| `openbot_bash_exec` | `command`, `workingDir?` | Run shell commands inside the container sandbox. |
+| `openbot_fs_write` | `path`, `content` | Write or create files inside the sandboxed workspace. |
+| `openbot_fs_read` | `path` | Read file contents from the sandboxed workspace. |
+| `openbot_fs_list` | `path?` | List directory contents within the sandboxed workspace. |
+
+### 2. High-Precision Browser Tools
+| Tool Name | Parameters | Description |
+| :--- | :--- | :--- |
+| `openbot_browser_navigate` | `url` | Navigate the isolated Chromium browser to target URL. |
+| `openbot_browser_snapshot` | *none* | Capture accessibility tree with numbered element references (`@e1`, `@e2`). |
+| `openbot_browser_click` | `target` (or `selector`) | Click an element by its indexed ref (e.g. `@e1`) or CSS selector. |
+| `openbot_browser_type` | `target`, `text`, `clear?`, `pressEnter?` | Type text into an input field by `@ref` or selector. |
+| `openbot_browser_press` | `key` | Send keyboard key events (`Enter`, `Tab`, `Escape`, `ArrowDown`). |
+| `openbot_browser_scroll` | `direction?` (`down`/`up`/`top`/`bottom`), `amount?` | Scroll active page viewport. |
+| `openbot_browser_screenshot` | `saveName?` | Save visual PNG screenshot to the sandbox workspace. |
+| `openbot_browser_eval` | `script` | Evaluate sandboxed JavaScript expression in the page context. |
+
+---
+
+## ⚖️ Open-Source Ecosystem Comparison
+
+| Feature | **dsh-plugin-openbot** | **CopilotKit OpenBot** | **browser-use** | **OpenHands** |
+| :--- | :--- | :--- | :--- | :--- |
+| **Host System** | DeepSeek Harness (Cordis) | Standalone Node/Next.js | Python library / CLI | Python controller + React |
+| **Element Indexing** | Native (`@e1`, `@e2`) | Standard DOM | Native (`@e1`, `@e2`) | BrowserGym selectors |
+| **Human Takeover** | One-Click "Take the Wheel" | "Take the Wheel" | Manual script pause | Web Terminal |
+| **Container Sandboxing** | Auto Docker + Local Fallback | Multi-container Docker | None (Host/Cloud CDP) | Single Docker container |
+| **Risk Scoring & Audit** | Pre-action scoring + JSONL | CEL policies + Fail-closed | Basic logging | Event stream log |
 
 ---
 
@@ -76,7 +123,7 @@ Add `dsh-plugin-openbot` to `~/.dsh/profiles/desktop/package.json`:
 ```json
 {
   "dependencies": {
-    "dsh-plugin-openbot": "0.1.0"
+    "dsh-plugin-openbot": "0.2.0"
   },
   "dsh": {
     "profile": {
@@ -90,46 +137,22 @@ Add `dsh-plugin-openbot` to `~/.dsh/profiles/desktop/package.json`:
 }
 ```
 
-### 3. Configuration (`cordis.patch.yml`)
+### 3. Verification & Tests
 
-The plugin includes default configurations that can be customized in your profile or settings:
-
-```yaml
-- insert:
-    - id: openbot
-      name: dsh-plugin-openbot
-      config:
-        enabled: true
-        containerName: "dsh-openbot-sandbox"
-        apiPort: 8080
-        vncPort: 8081
-        autoStartContainer: true
-        requireApproval: true
-        workspaceDir: !!js process.env.HOME + '/.dsh/openbot/workspace'
+Run the complete integration test suite:
+```bash
+npm test
 ```
+Output:
+```text
+✔ 1. Plugin module metadata & schemas
+✔ 2. System prompt generator
+✔ 3. Container Manager & Docker daemon checks
+✔ 4. Security Gateway risk scoring & audit logging
+✔ 5. Sandboxed Filesystem Tools Execution & Security Guard
+✔ 6. High-Precision Browser Tools Suite Registration
+✔ 7. Human-in-the-Loop "Take the Wheel" Mode Suspension
+✔ 8. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle
 
----
-
-## 🛠️ Registered Agent Tools
-
-| Tool Name | Description |
-| :--- | :--- |
-| `openbot_browser_navigate` | Navigate to a URL in the containerized Chromium instance. |
-| `openbot_browser_click` | Click on elements via CSS/text selector. |
-| `openbot_browser_snapshot` | Capture current viewport accessibility tree and text snapshot. |
-| `openbot_bash_exec` | Execute shell commands safely inside the isolated container workspace (`/sandbox/workspace`). |
-| `openbot_fs_read` | Read files inside the sandboxed workspace. |
-| `openbot_fs_write` | Create or write files inside the sandboxed workspace. |
-| `openbot_fs_list` | List directory contents within the sandboxed workspace. |
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a [Pull Request](https://github.com/jimmyjdejesus-cmyk/dsh-plugin-openbot/pulls) or open an [Issue](https://github.com/jimmyjdejesus-cmyk/dsh-plugin-openbot/issues).
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
+tests 8 | pass 8 | fail 0
+```
