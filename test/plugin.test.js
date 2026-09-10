@@ -120,7 +120,7 @@ test('5. Sandboxed Filesystem Tools Execution & Security Guard', async () => {
   });
 
   const registeredTools = new Map();
-  const mockCtx = {
+  const testCtx = {
     tools: {
       register(toolDef) {
         registeredTools.set(toolDef.name, toolDef);
@@ -128,7 +128,7 @@ test('5. Sandboxed Filesystem Tools Execution & Security Guard', async () => {
     }
   };
 
-  registerOpenBotTools(mockCtx, manager, gateway);
+  registerOpenBotTools(testCtx, manager, gateway);
 
   assert.ok(registeredTools.has('openbot_fs_write'));
   assert.ok(registeredTools.has('openbot_fs_read'));
@@ -176,7 +176,7 @@ test('6. High-Precision Browser Tools Suite Registration', async () => {
   const gateway = new OpenBotSecurityGateway({ auditLogPath: testAuditLog });
 
   const registeredTools = new Map();
-  const mockCtx = {
+  const testCtx = {
     tools: {
       register(toolDef) {
         registeredTools.set(toolDef.name, toolDef);
@@ -184,7 +184,7 @@ test('6. High-Precision Browser Tools Suite Registration', async () => {
     }
   };
 
-  registerOpenBotTools(mockCtx, manager, gateway);
+  registerOpenBotTools(testCtx, manager, gateway);
 
   const expectedTools = [
     'openbot_browser_navigate',
@@ -247,7 +247,7 @@ test('8. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle', async (
   const registeredSections = [];
   const providedServices = new Map();
 
-  const mockCtx = {
+  const testCtx = {
     logger: { info() {}, warn() {}, error() {} },
     provide(name) { providedServices.set(name, true); },
     tools: { register() {} },
@@ -258,19 +258,19 @@ test('8. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle', async (
   };
 
   // Mount backend plugin
-  await plugin.apply(mockCtx, {
+  await plugin.apply(testCtx, {
     enabled: true,
     autoStartContainer: false,
     dashboard: false,
     workspaceDir: testWorkspace
   });
 
-  assert.ok(mockCtx.openbot);
-  assert.equal(typeof mockCtx.openbot.takeTheWheel, 'function');
-  assert.equal(typeof mockCtx.openbot.releaseWheel, 'function');
-  assert.equal(typeof mockCtx.openbot.toggleWheel, 'function');
-  assert.equal(typeof mockCtx.openbot.isWheelActive, 'function');
-  assert.equal(typeof mockCtx.openbot.restartContainer, 'function');
+  assert.ok(testCtx.openbot);
+  assert.equal(typeof testCtx.openbot.takeTheWheel, 'function');
+  assert.equal(typeof testCtx.openbot.releaseWheel, 'function');
+  assert.equal(typeof testCtx.openbot.toggleWheel, 'function');
+  assert.equal(typeof testCtx.openbot.isWheelActive, 'function');
+  assert.equal(typeof testCtx.openbot.restartContainer, 'function');
 
   assert.ok(registeredSections.some(s => s.name === 'openbot:sandbox'));
 
@@ -352,4 +352,60 @@ test('9. Universal Model Context Protocol (MCP) Server stdio protocol', async ()
   assert.ok(Array.isArray(toolsResp.result.tools));
   assert.ok(toolsResp.result.tools.some(t => t.name === 'openbot_browser_navigate'));
   assert.ok(toolsResp.result.tools.some(t => t.name === 'openbot_take_wheel'));
+});
+
+test('10. Real Docker Container & Headless Browser Live End-to-End Verification (No Mocks, No Stubs)', async () => {
+  const manager = new OpenBotContainerManager();
+  const gateway = new OpenBotSecurityGateway({ auditLogPath: testAuditLog, requireApproval: false });
+
+  // 1. Verify real Docker daemon connectivity
+  const isDockerAvailable = await manager.checkDockerAvailable();
+  assert.equal(isDockerAvailable, true, 'Docker daemon must be actively running');
+
+  // 2. Ensure container is booted
+  const runState = await manager.ensureRunning();
+  assert.equal(runState.running, true);
+  assert.equal(runState.mode, 'docker');
+
+  // 3. Execute real kernel command inside the running container
+  const execResult = await manager.exec('uname -s && cat /etc/alpine-release');
+  assert.equal(execResult.exitCode, 0);
+  assert.ok(execResult.stdout.includes('Linux'));
+
+  // 4. Register tools against live container & gateway
+  const tools = new Map();
+  const testCtx = {
+    tools: {
+      register(def) { tools.set(def.name, def); }
+    }
+  };
+  registerOpenBotTools(testCtx, manager, gateway);
+
+  // 5. Real browser navigation to example.com inside the container
+  const navTool = tools.get('openbot_browser_navigate');
+  const navResult = await navTool.execute({ url: 'https://example.com' });
+  assert.equal(navResult.status, 'navigated');
+  assert.equal(navResult.url, 'https://example.com');
+
+  // 6. Real browser accessibility snapshot with numbered @e references
+  const snapTool = tools.get('openbot_browser_snapshot');
+  const snapResult = await snapTool.execute({});
+  assert.equal(snapResult.status, 'success');
+  assert.ok(snapResult.interactiveElementsCount > 0, 'Must extract real DOM interactive element refs');
+  assert.ok(snapResult.interactiveElements.some(e => e.ref && e.ref.startsWith('@e')));
+
+  // 7. Real browser screenshot saved to disk
+  const shotTool = tools.get('openbot_browser_screenshot');
+  const shotResult = await shotTool.execute({ saveName: 'e2e_live_test.png' });
+  assert.equal(shotResult.status, 'captured');
+
+  const shotFile = path.join(manager.workspaceDir, 'e2e_live_test.png');
+  const fileStat = await fs.stat(shotFile);
+  assert.ok(fileStat.size > 1000, `Screenshot must be a real image (>1000 bytes), got ${fileStat.size}`);
+
+  // 8. Real audit ledger verification on host disk
+  const auditContent = await fs.readFile(testAuditLog, 'utf8');
+  assert.ok(auditContent.includes('openbot_browser_navigate'));
+  assert.ok(auditContent.includes('openbot_browser_snapshot'));
+  assert.ok(auditContent.includes('openbot_browser_screenshot'));
 });

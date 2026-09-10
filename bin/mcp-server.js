@@ -38,8 +38,8 @@ const securityGateway = new OpenBotSecurityGateway({
 // Registry map to collect all registered tools
 const toolsRegistry = new Map();
 
-// Mock Cordis context that populates toolsRegistry
-const mockCtx = {
+// Cordis context adapter that registers active tools into the MCP toolsRegistry
+const adapterCtx = {
   tools: {
     register: (toolDef) => {
       toolsRegistry.set(toolDef.name, toolDef);
@@ -48,7 +48,7 @@ const mockCtx = {
 };
 
 // Register all browser, sandbox, and HITL tools
-registerOpenBotTools(mockCtx, containerManager, securityGateway);
+registerOpenBotTools(adapterCtx, containerManager, securityGateway);
 
 /**
  * Convert internal tool definition to MCP Tool schema.
