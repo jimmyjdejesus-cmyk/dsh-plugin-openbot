@@ -261,6 +261,7 @@ test('8. Cordis Context Plugin Mount & __ModuleLoader__ Browser Bundle', async (
   await plugin.apply(mockCtx, {
     enabled: true,
     autoStartContainer: false,
+    dashboard: false,
     workspaceDir: testWorkspace
   });
 
